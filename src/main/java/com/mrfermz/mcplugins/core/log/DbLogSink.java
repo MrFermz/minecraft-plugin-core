@@ -7,6 +7,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.sql.DataSource;
@@ -38,13 +39,10 @@ public final class DbLogSink implements LogSink {
     }
 
     private void createTable() {
-        String idCol = switch (dialect) {
-            case SQLITE -> "id INTEGER PRIMARY KEY AUTOINCREMENT";
-            case POSTGRESQL -> "id BIGSERIAL PRIMARY KEY";
-            case MYSQL, MARIADB -> "id BIGINT AUTO_INCREMENT PRIMARY KEY";
-        };
+        // Generated UUID surrogate id as PK (ecosystem convention) — VARCHAR(36)
+        // works on every engine; no per-dialect auto-increment.
         String ddl = "CREATE TABLE IF NOT EXISTS " + table + " ("
-                + idCol + ", "
+                + "id VARCHAR(36) PRIMARY KEY, "
                 + "ts BIGINT NOT NULL, "
                 + "level VARCHAR(8) NOT NULL, "
                 + "source VARCHAR(64) NOT NULL, "
@@ -84,17 +82,18 @@ public final class DbLogSink implements LogSink {
         if (dataSource instanceof HikariDataSource pool && pool.isClosed()) {
             return;
         }
-        String sql = "INSERT INTO " + table + " (" + COLUMNS + ") VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO " + table + " (id, " + COLUMNS + ") VALUES (?, ?, ?, ?, ?, ?)";
         try (Connection conn = dataSource.getConnection()) {
             boolean autoCommit = conn.getAutoCommit();
             conn.setAutoCommit(false);
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 for (LogEntry e : batch) {
-                    ps.setLong(1, e.timestamp());
-                    ps.setString(2, e.level().name());
-                    ps.setString(3, e.source());
-                    ps.setString(4, e.message());
-                    ps.setString(5, e.error());
+                    ps.setString(1, UUID.randomUUID().toString());
+                    ps.setLong(2, e.timestamp());
+                    ps.setString(3, e.level().name());
+                    ps.setString(4, e.source());
+                    ps.setString(5, e.message());
+                    ps.setString(6, e.error());
                     ps.addBatch();
                 }
                 ps.executeBatch();

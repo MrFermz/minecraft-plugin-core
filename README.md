@@ -43,22 +43,24 @@ feature plugin **ห้ามเรียก `getDataFolder()`/`getConfig()`/`sa
 
 core เป็นเจ้าของ **log sink กลางชุดเดียว** ของทั้ง ecosystem — register `LogService` เข้า `ServicesManager` เหมือน `DatabaseService`
 
+> **สถานะตอนนี้: ปิดไว้ default (opt-in)** — ยังเก็บแค่ money transaction (ตาราง `money_transactions` ของ money เอง) อย่างอื่นไม่เก็บ จนกว่าจะเปิด sink ใน config; infra พร้อมใช้แล้ว แค่ flip `enabled: true`
+
 **plugin อื่นไม่ต้องทำอะไรเพิ่ม** — แค่ใช้ `PluginLog` เหมือนเดิม (`PluginLog.of(this)` → `log.info(...)`) ทุกบรรทัดจะถูก:
 1. print ลง console ตามปกติ (Bukkit logger)
-2. forward เข้า `LogService` แล้ว **persist ลง 2 sink พร้อมกัน** (async, ไม่บล็อก main thread)
+2. forward เข้า `LogService` — ถ้าเปิด sink ไว้ จะ **persist async** (ไม่บล็อก main thread); ถ้าปิดหมด (default) `LogService` ไม่มี sink เลย no-op เงียบ ๆ
 
 sink ที่มี:
 - **`FileLogSink`** → ไฟล์ text หมุนรายวันที่ `plugins/antitle/logs/antitle-<yyyy-MM-dd>.log`
-- **`DbLogSink`** → ตาราง `core_logs` ใน central DB (ต่อเมื่อ DB พร้อม) — `id, ts, level, source, message, error` (dialect-aware รองรับทุก engine)
+- **`DbLogSink`** → ตาราง `core_logs` ใน central DB (ต่อเมื่อ DB พร้อม) — `id` (PK gen ด้วย UUID), `ts, level, source, message, error` (dialect-aware รองรับทุก engine)
 
 ```yaml
 # plugins/antitle/config.yml (core เป็นเจ้าของ)
 logging:
   level: info          # info | warn | error — ขั้นต่ำที่ persist
   file:
-    enabled: true      # ไฟล์รายวันใน plugins/antitle/logs/
+    enabled: false     # ไฟล์รายวันใน plugins/antitle/logs/ (default ปิด)
   database:
-    enabled: true      # ตาราง core_logs (เฉพาะตอน DB พร้อม)
+    enabled: false     # ตาราง core_logs (เฉพาะตอน DB พร้อม) (default ปิด)
 ```
 
 กลไก: `DefaultLogService` buffer entry ลง queue → flush แบบ debounced async (drain ทั้ง queue ต่อรอบ) + periodic flush ทุก 30 วิ + flush ตอน disable; sink ถูกเรียกทีละ batch (single-threaded) เลยเขียน sink ง่าย ๆ ได้; error ของ sink รายงานผ่าน `getLogger()` ตรง ๆ ไม่ย้อนเข้า pipeline (กัน recursion)
@@ -70,7 +72,7 @@ bootstrap order ใน `CorePlugin`: ตั้ง logging (file sink) ก่อ�
 ## สถานะ
 
 - ✅ API surface (`EconomyService`/`EconomyResponse`), `CoreApi`, `EcosystemData`, `PluginLog`
-- ✅ `LogService` กลาง — `PluginLog` ทุก plugin forward เข้า file (`plugins/antitle/logs/`) + central DB (`core_logs`) แบบ async
+- ✅ `LogService` กลาง (infra พร้อม) — `PluginLog` forward ทุกบรรทัดให้ แต่ **sink ปิด default** (opt-in ผ่าน `logging.*`); ตอนนี้เก็บแค่ money transaction
 - ✅ `DatabaseService` wired — `HikariDatabaseService` รองรับ **sqlite (default) / postgresql (แนะนำ production) / mysql / mariadb** เลือกผ่าน `database.type` ใน global `config.yml`; driver โหลด runtime ผ่าน Paper `libraries:` (ไม่ shade); plugin อื่นใช้ `dialect()` เลือก SQL ที่ถูก engine
 - ⏳ `ConfigClient` เป็น interface placeholder (รอ `webconfig/`); ยังไม่มี migration กลาง (Flyway) — แต่ละ plugin `CREATE TABLE IF NOT EXISTS` ไปก่อน
 

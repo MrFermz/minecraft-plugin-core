@@ -81,7 +81,9 @@ public final class CorePlugin extends JavaPlugin {
         LogLevel level = LogLevel.fromConfig(config.getString("logging.level", "info"));
         this.logging = new DefaultLogService(this, level);
 
-        if (config.getBoolean("logging.file.enabled", true)) {
+        // Operational log capture is opt-in (off by default) — for now only money
+        // transactions are persisted (their own money_transactions table).
+        if (config.getBoolean("logging.file.enabled", false)) {
             logging.addSink(new FileLogSink(EcosystemData.folder(this, "logs"), getLogger()));
         }
 
@@ -95,7 +97,7 @@ public final class CorePlugin extends JavaPlugin {
     }
 
     private void attachDbLogSink(FileConfiguration config) {
-        if (database == null || !config.getBoolean("logging.database.enabled", true)) {
+        if (database == null || !config.getBoolean("logging.database.enabled", false)) {
             return;
         }
         logging.addSink(new DbLogSink(

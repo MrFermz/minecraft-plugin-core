@@ -34,13 +34,15 @@ database:
   pool-size: 10
 
 logging:
-  # Centralized logging owned by core: every plugin's PluginLog lines are
-  # persisted here, in addition to the server console. Minimum level kept:
-  #   info | warn | error
+  # Centralized log capture owned by core. When enabled, every plugin's
+  # PluginLog line is persisted (in addition to the server console).
+  # OFF by default for now — only money transactions are recorded (in their own
+  # money_transactions table). Flip a sink to true to start capturing logs.
+  # Minimum level kept: info | warn | error
   level: info
   file:
     # Daily-rotated text files under plugins/antitle/logs/ (antitle-<date>.log).
-    enabled: true
+    enabled: false
   database:
     # Table core_logs in the central DB (only when the DB is available).
-    enabled: true
+    enabled: false
