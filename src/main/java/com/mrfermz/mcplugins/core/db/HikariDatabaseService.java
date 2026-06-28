@@ -41,6 +41,9 @@ public final class HikariDatabaseService implements DatabaseService, AutoCloseab
                 // SQLite is single-writer; one connection avoids lock churn.
                 config.setMaximumPoolSize(1);
                 config.setConnectionInitSql("PRAGMA busy_timeout = 5000");
+                // Store java.sql.Timestamp as readable ISO text, not epoch millis,
+                // so date columns (e.g. money_transactions.created_at) are real dates.
+                config.addDataSourceProperty("date_class", "text");
             }
             case POSTGRESQL -> {
                 config.setJdbcUrl("jdbc:postgresql://" + settings.host() + ":" + settings.port()
