@@ -1,6 +1,7 @@
 package com.mrfermz.mcplugins.core.log;
 
 import com.mrfermz.mcplugins.core.db.Dialect;
+import com.zaxxer.hikari.HikariDataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -77,6 +78,12 @@ public final class DbLogSink implements LogSink {
 
     @Override
     public void write(List<LogEntry> batch) {
+        // During shutdown the pool may already be closed (core closes the DB
+        // before the final flush); skip quietly rather than spamming errors —
+        // these lines still reach the console and file sink.
+        if (dataSource instanceof HikariDataSource pool && pool.isClosed()) {
+            return;
+        }
         String sql = "INSERT INTO " + table + " (" + COLUMNS + ") VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = dataSource.getConnection()) {
             boolean autoCommit = conn.getAutoCommit();

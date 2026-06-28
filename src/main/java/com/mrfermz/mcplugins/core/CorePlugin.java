@@ -58,17 +58,22 @@ public final class CorePlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        // Emit final lines and flush them while the DB pool is still open, so the
+        // DB sink can persist them (the async flush path is unavailable now that
+        // the plugin is disabling — see DefaultLogService#log).
+        if (log != null) {
+            log.info("minecraft-plugin-core disabled.");
+        }
+        if (logging != null) {
+            logging.flush();
+        }
         if (database != null) {
             getServer().getServicesManager().unregister(DatabaseService.class, database);
             database.close();
-            log.info("Central database closed.");
         }
         if (logging != null) {
-            log.info("minecraft-plugin-core disabled.");
             getServer().getServicesManager().unregister(LogService.class, logging);
-            logging.close(); // flush remaining lines and close file handles
-        } else if (log != null) {
-            log.info("minecraft-plugin-core disabled.");
+            logging.close(); // flush any stragglers (DB sink now no-ops) + close files
         }
     }
 

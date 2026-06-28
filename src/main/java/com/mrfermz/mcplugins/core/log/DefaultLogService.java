@@ -54,7 +54,10 @@ public final class DefaultLogService implements LogService {
             return;
         }
         queue.add(entry);
-        if (flushQueued.compareAndSet(false, true)) {
+        // Only schedule async work while enabled; Folia rejects task registration
+        // once the plugin is disabling. Lines logged during shutdown stay queued
+        // and are drained by the explicit flush()/close() in CorePlugin.onDisable.
+        if (plugin.isEnabled() && flushQueued.compareAndSet(false, true)) {
             plugin.getServer().getAsyncScheduler().runNow(plugin, task -> {
                 flushQueued.set(false);
                 flush();
