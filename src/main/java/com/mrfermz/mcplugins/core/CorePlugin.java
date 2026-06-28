@@ -19,7 +19,7 @@ import org.bukkit.plugin.java.JavaPlugin;
  *
  * <p>Core is loaded as its own plugin on the server (not shaded into each
  * plugin), so the shared database pool and web-config client exist exactly
- * once. Feature plugins declare {@code depend: [MinecraftPluginCore]} and reach
+ * once. Feature plugins declare {@code depend: [Core]} and reach
  * core's services through {@link CoreApi} / Bukkit's {@code ServicesManager}.
  *
  * <p>This class deliberately holds no game logic — only bootstrapping for the

@@ -2,7 +2,7 @@
 
 Shared core module สำหรับ ecosystem นี้ — **load เป็น plugin แยกบน server** (ไม่ shade เข้าแต่ละ plugin) เพื่อให้ connection pool / web-config client มีอยู่ชุดเดียวจริง ๆ
 
-Feature plugin ทุกตัว depend on ตัวนี้แบบ `compileOnly(project(":minecraft-plugin-core"))` + ใส่ `depend: [MinecraftPluginCore]` ใน `plugin.yml` แล้วคุยกันตอน runtime ผ่าน Bukkit `ServicesManager`
+Feature plugin ทุกตัว depend on ตัวนี้แบบ `compileOnly(project(":minecraft-plugin-core"))` + ใส่ `depend: [Core]` ใน `plugin.yml` (ชื่อ plugin ที่โชว์ใน `/pl` = `Core`) แล้วคุยกันตอน runtime ผ่าน Bukkit `ServicesManager`
 
 ห้ามใส่ logic เกมเฉพาะ plugin ใด ๆ ไว้ที่นี่ — ดู convention ส่วนกลางที่ [CLAUDE.md](../CLAUDE.md)
 
@@ -22,7 +22,7 @@ Feature plugin ทุกตัว depend on ตัวนี้แบบ `compile
 
 ```java
 EconomyService eco = CoreApi.economy(getServer())
-        .orElseThrow(() -> new IllegalStateException("MoneyPlugin ยังไม่ load"));
+        .orElseThrow(() -> new IllegalStateException("Money plugin ยังไม่ load"));
 BigDecimal bal = eco.getBalance(player.getUniqueId());
 eco.withdraw(player.getUniqueId(), new BigDecimal("50"));
 ```

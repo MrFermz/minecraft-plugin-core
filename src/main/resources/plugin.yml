@@ -1,4 +1,4 @@
-name: MinecraftPluginCore
+name: Core
 version: '${version}'
 main: com.mrfermz.mcplugins.core.CorePlugin
 api-version: '1.21'
