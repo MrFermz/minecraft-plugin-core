@@ -6,6 +6,10 @@ import com.mrfermz.mcplugins.core.db.DatabaseSettings;
 import com.mrfermz.mcplugins.core.db.Dialect;
 import com.mrfermz.mcplugins.core.db.HikariDatabaseService;
 import com.mrfermz.mcplugins.core.log.PluginLog;
+import com.mrfermz.mcplugins.core.settings.DbPlayerPreferenceService;
+import com.mrfermz.mcplugins.core.settings.DefaultSettingsRegistry;
+import com.mrfermz.mcplugins.core.settings.PlayerPreferenceService;
+import com.mrfermz.mcplugins.core.settings.SettingsRegistry;
 import java.io.File;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -29,6 +33,7 @@ public final class CorePlugin extends JavaPlugin {
 
     private PluginLog log;
     private HikariDatabaseService database;
+    private DbPlayerPreferenceService preferences;
 
     @Override
     public void onEnable() {
@@ -37,12 +42,20 @@ public final class CorePlugin extends JavaPlugin {
         FileConfiguration config = EcosystemData.config(this);
 
         startDatabase(config);
+        // Per-player settings infra rides on the central DB; only when it's up.
+        if (database != null) {
+            startPlayerSettings();
+        }
 
         log.info("minecraft-plugin-core enabled (shared API ready).");
     }
 
     @Override
     public void onDisable() {
+        if (preferences != null) {
+            getServer().getServicesManager().unregister(PlayerPreferenceService.class, preferences);
+            preferences.close();
+        }
         if (database != null) {
             getServer().getServicesManager().unregister(DatabaseService.class, database);
             database.close();
@@ -51,6 +64,25 @@ public final class CorePlugin extends JavaPlugin {
         if (log != null) {
             log.info("minecraft-plugin-core disabled.");
         }
+    }
+
+    /**
+     * Registers the shared per-player settings services: a {@link SettingsRegistry}
+     * that feature plugins add their settings to, and a
+     * {@link PlayerPreferenceService} that stores each player's choices in the
+     * central DB. The in-game {@code Settings} plugin renders the registry and
+     * writes through the preference service.
+     */
+    private void startPlayerSettings() {
+        getServer().getServicesManager().register(
+                SettingsRegistry.class, new DefaultSettingsRegistry(), this, ServicePriority.Normal);
+
+        this.preferences = new DbPlayerPreferenceService(
+                this, database.dataSource(), database.tablePrefix("setting"), database.dialect(), log);
+        getServer().getServicesManager().register(
+                PlayerPreferenceService.class, preferences, this, ServicePriority.Normal);
+
+        log.info("Player settings ready (registry + preference store).");
     }
 
     private void startDatabase(FileConfiguration config) {
