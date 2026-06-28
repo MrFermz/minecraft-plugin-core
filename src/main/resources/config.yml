@@ -1,0 +1,34 @@
+# Global ecosystem config — owned by minecraft-plugin-core.
+# On the server this lives at plugins/antitle/config.yml and is shared by every
+# plugin (see CLAUDE.md → Config directory / Database).
+
+database:
+  # Engine for the single shared database. Each plugin namespaces its own tables
+  # (e.g. money_*). Supported:
+  #   sqlite      embedded file, zero-config — the default, great for dev
+  #   postgresql  recommended for production
+  #   mysql / mariadb  also supported (via the MariaDB driver)
+  type: sqlite
+
+  # --- SQLite only (type: sqlite) ---
+  # DB file, relative to plugins/antitle/
+  file: "database.db"
+
+  # --- Network engines (type: postgresql / mysql / mariadb) ---
+  host: "127.0.0.1"
+  port: 5432              # postgresql 5432, mysql/mariadb 3306
+  database: "antitle"
+  username: "root"
+  password: ""
+  # Extra JDBC params appended to the connection URL, e.g.:
+  # properties:
+  #   sslmode: require
+  properties: {}
+
+  # On first run, create the database automatically if it doesn't exist yet.
+  # The login user needs permission to create databases (PostgreSQL: CREATEDB).
+  # The role/user itself is NOT auto-created — make sure it exists.
+  create-if-missing: true
+
+  # HikariCP max pool size (ignored for sqlite, which is forced to 1).
+  pool-size: 10

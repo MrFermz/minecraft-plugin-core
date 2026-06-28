@@ -1,0 +1,12 @@
+name: MinecraftPluginCore
+version: '${version}'
+main: com.mrfermz.mcplugins.core.CorePlugin
+api-version: '1.21'
+author: Mr.Fermz
+description: Shared core — DB pool, web-config client and cross-plugin service API.
+load: STARTUP
+libraries:
+  - com.zaxxer:HikariCP:${hikariVersion}
+  - org.xerial:sqlite-jdbc:${sqliteVersion}
+  - org.postgresql:postgresql:${postgresqlVersion}
+  - org.mariadb.jdbc:mariadb-java-client:${mariadbVersion}
