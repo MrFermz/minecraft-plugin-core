@@ -5,10 +5,16 @@ import com.mrfermz.mcplugins.core.db.DatabaseService;
 import com.mrfermz.mcplugins.core.db.DatabaseSettings;
 import com.mrfermz.mcplugins.core.db.Dialect;
 import com.mrfermz.mcplugins.core.db.HikariDatabaseService;
+import com.mrfermz.mcplugins.core.log.DbLogSink;
+import com.mrfermz.mcplugins.core.log.DefaultLogService;
+import com.mrfermz.mcplugins.core.log.FileLogSink;
+import com.mrfermz.mcplugins.core.log.LogLevel;
+import com.mrfermz.mcplugins.core.log.LogService;
 import com.mrfermz.mcplugins.core.log.PluginLog;
 import java.io.File;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.ServicePriority;
@@ -27,16 +33,25 @@ import org.bukkit.plugin.java.JavaPlugin;
  */
 public final class CorePlugin extends JavaPlugin {
 
+    /** Safety-net flush of buffered log lines, in case the debounced flush stalls. */
+    private static final long LOG_FLUSH_INTERVAL_MS = 1000L * 30; // 30 seconds
+
     private PluginLog log;
     private HikariDatabaseService database;
+    private DefaultLogService logging;
 
     @Override
     public void onEnable() {
         this.log = PluginLog.of(this);
-        // Global ecosystem settings live in plugins/mrfermz/config.yml.
+        // Global ecosystem settings live in plugins/antitle/config.yml.
         FileConfiguration config = EcosystemData.config(this);
 
+        // Stand up centralized logging first (file sink), so the database
+        // bootstrap below — and everything after — is persisted too.
+        startLogging(config);
         startDatabase(config);
+        // The DB sink can only attach once the pool is up.
+        attachDbLogSink(config);
 
         log.info("minecraft-plugin-core enabled (shared API ready).");
     }
@@ -48,9 +63,38 @@ public final class CorePlugin extends JavaPlugin {
             database.close();
             log.info("Central database closed.");
         }
-        if (log != null) {
+        if (logging != null) {
+            log.info("minecraft-plugin-core disabled.");
+            getServer().getServicesManager().unregister(LogService.class, logging);
+            logging.close(); // flush remaining lines and close file handles
+        } else if (log != null) {
             log.info("minecraft-plugin-core disabled.");
         }
+    }
+
+    private void startLogging(FileConfiguration config) {
+        LogLevel level = LogLevel.fromConfig(config.getString("logging.level", "info"));
+        this.logging = new DefaultLogService(this, level);
+
+        if (config.getBoolean("logging.file.enabled", true)) {
+            logging.addSink(new FileLogSink(EcosystemData.folder(this, "logs"), getLogger()));
+        }
+
+        getServer().getServicesManager().register(
+                LogService.class, logging, this, ServicePriority.Normal);
+
+        // Periodic safety-net flush off the main thread.
+        getServer().getAsyncScheduler().runAtFixedRate(this,
+                task -> logging.flush(),
+                LOG_FLUSH_INTERVAL_MS, LOG_FLUSH_INTERVAL_MS, TimeUnit.MILLISECONDS);
+    }
+
+    private void attachDbLogSink(FileConfiguration config) {
+        if (database == null || !config.getBoolean("logging.database.enabled", true)) {
+            return;
+        }
+        logging.addSink(new DbLogSink(
+                database.dataSource(), database.dialect(), database.tablePrefix("core"), getLogger()));
     }
 
     private void startDatabase(FileConfiguration config) {
