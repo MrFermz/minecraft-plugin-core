@@ -16,7 +16,7 @@ Feature plugin ทุกตัว depend on ตัวนี้แบบ `compile
 | `api/` | `EconomyService`, `EconomyResponse` | สัญญา economy ที่ plugin อื่นเรียกใช้ (impl อยู่ใน money) ใช้ `BigDecimal` ห้าม `double` |
 | `db/` | `DatabaseService`, `HikariDatabaseService`, `Dialect`, `DatabaseSettings` | shared DB กลาง — HikariCP pool เดียว, เลือก engine ได้ (sqlite/postgresql/mysql/mariadb); plugin อื่นขอ `DataSource` + `dialect()` ผ่าน `CoreApi.database(server)` + `tablePrefix("<module>")` |
 | `config/` | `ConfigClient` | **seam เท่านั้น** — interface อ่านค่าจาก `webconfig/` (cache + refresh) ยังไม่มี impl |
-| `log/` | `PluginLog`, `LogService` (+ `DefaultLogService`, `FileLogSink`, `DbLogSink`, `LogEntry`, `LogLevel`) | logging กลาง — `PluginLog` format เหมือนกันทุก plugin + **forward ทุกบรรทัดเข้า `LogService`** (persist ลง file + central DB) ดู [Centralized logging](#centralized-logging-logservice) |
+| `log/` | `PluginLog` | wrapper รอบ Bukkit logger ให้ทุก plugin format log เหมือนกัน (`PluginLog.of(plugin)`, รองรับ `{}` placeholder) |
 
 ## วิธีให้ plugin อื่นเรียก economy
 
@@ -39,40 +39,15 @@ File dir = EcosystemData.folder(this, "money");              // plugins/antitle/
 
 feature plugin **ห้ามเรียก `getDataFolder()`/`getConfig()`/`saveDefaultConfig()` ตรง ๆ** — ดูรายละเอียดเต็มที่ [CLAUDE.md → Config directory บน server](../CLAUDE.md#config-directory-บน-server)
 
-## Centralized logging (`LogService`)
+## Logging
 
-core เป็นเจ้าของ **log sink กลางชุดเดียว** ของทั้ง ecosystem — register `LogService` เข้า `ServicesManager` เหมือน `DatabaseService`
+`PluginLog` (`PluginLog.of(this)`) เป็น wrapper รอบ Bukkit logger ให้ทุก plugin format log เหมือนกัน (รองรับ `{}` placeholder) — print ลง server console ตามปกติ
 
-> **สถานะตอนนี้: ปิดไว้ default (opt-in)** — ยังเก็บแค่ money transaction (ตาราง `money_transactions` ของ money เอง) อย่างอื่นไม่เก็บ จนกว่าจะเปิด sink ใน config; infra พร้อมใช้แล้ว แค่ flip `enabled: true`
-
-**plugin อื่นไม่ต้องทำอะไรเพิ่ม** — แค่ใช้ `PluginLog` เหมือนเดิม (`PluginLog.of(this)` → `log.info(...)`) ทุกบรรทัดจะถูก:
-1. print ลง console ตามปกติ (Bukkit logger)
-2. forward เข้า `LogService` — ถ้าเปิด sink ไว้ จะ **persist async** (ไม่บล็อก main thread); ถ้าปิดหมด (default) `LogService` ไม่มี sink เลย no-op เงียบ ๆ
-
-sink ที่มี:
-- **`FileLogSink`** → ไฟล์ text หมุนรายวันที่ `plugins/antitle/logs/antitle-<yyyy-MM-dd>.log`
-- **`DbLogSink`** → ตาราง `core_logs` ใน central DB (ต่อเมื่อ DB พร้อม) — `id` (PK gen ด้วย UUID), `ts, level, source, message, error` (dialect-aware รองรับทุก engine)
-
-```yaml
-# plugins/antitle/config.yml (core เป็นเจ้าของ)
-logging:
-  level: info          # info | warn | error — ขั้นต่ำที่ persist
-  file:
-    enabled: false     # ไฟล์รายวันใน plugins/antitle/logs/ (default ปิด)
-  database:
-    enabled: false     # ตาราง core_logs (เฉพาะตอน DB พร้อม) (default ปิด)
-```
-
-กลไก: `DefaultLogService` buffer entry ลง queue → flush แบบ debounced async (drain ทั้ง queue ต่อรอบ) + periodic flush ทุก 30 วิ + flush ตอน disable; sink ถูกเรียกทีละ batch (single-threaded) เลยเขียน sink ง่าย ๆ ได้; error ของ sink รายงานผ่าน `getLogger()` ตรง ๆ ไม่ย้อนเข้า pipeline (กัน recursion)
-
-> log แบบ **operational/diagnostic** ใช้ตัวนี้; ส่วน **structured domain data** (เช่น transaction ของเงิน) ยังเก็บตารางของ plugin นั้นเอง (money → `money_transactions`) แยกจาก `core_logs`
-
-bootstrap order ใน `CorePlugin`: ตั้ง logging (file sink) ก่อน → start DB → ค่อยต่อ `DbLogSink` เข้า service เดิม ดังนั้น log ตอน DB กำลัง connect ก็ลงไฟล์ครบ
+> ตอนนี้ **ไม่มี centralized log persistence บน core** — สิ่งที่ persist ลง DB ตอนนี้คือ **money transaction อย่างเดียว** (ตาราง `money_transactions` เขียนผ่าน core `DatabaseService` เหมือนตารางอื่น) ดู [minecraft-plugin-money README](../minecraft-plugin-money/README.md#transaction-log-audit-trail)
 
 ## สถานะ
 
 - ✅ API surface (`EconomyService`/`EconomyResponse`), `CoreApi`, `EcosystemData`, `PluginLog`
-- ✅ `LogService` กลาง (infra พร้อม) — `PluginLog` forward ทุกบรรทัดให้ แต่ **sink ปิด default** (opt-in ผ่าน `logging.*`); ตอนนี้เก็บแค่ money transaction
 - ✅ `DatabaseService` wired — `HikariDatabaseService` รองรับ **sqlite (default) / postgresql (แนะนำ production) / mysql / mariadb** เลือกผ่าน `database.type` ใน global `config.yml`; driver โหลด runtime ผ่าน Paper `libraries:` (ไม่ shade); plugin อื่นใช้ `dialect()` เลือก SQL ที่ถูก engine
 - ⏳ `ConfigClient` เป็น interface placeholder (รอ `webconfig/`); ยังไม่มี migration กลาง (Flyway) — แต่ละ plugin `CREATE TABLE IF NOT EXISTS` ไปก่อน
 

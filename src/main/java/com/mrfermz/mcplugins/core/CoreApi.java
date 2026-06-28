@@ -2,7 +2,6 @@ package com.mrfermz.mcplugins.core;
 
 import com.mrfermz.mcplugins.core.api.EconomyService;
 import com.mrfermz.mcplugins.core.db.DatabaseService;
-import com.mrfermz.mcplugins.core.log.LogService;
 import java.util.Optional;
 import org.bukkit.Server;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -33,16 +32,6 @@ public final class CoreApi {
     public static Optional<DatabaseService> database(Server server) {
         RegisteredServiceProvider<DatabaseService> rsp =
                 server.getServicesManager().getRegistration(DatabaseService.class);
-        return rsp == null ? Optional.empty() : Optional.of(rsp.getProvider());
-    }
-
-    /**
-     * Looks up the centralized {@link LogService}. Most plugins don't need this
-     * directly — logging through {@code PluginLog} already forwards here.
-     */
-    public static Optional<LogService> logging(Server server) {
-        RegisteredServiceProvider<LogService> rsp =
-                server.getServicesManager().getRegistration(LogService.class);
         return rsp == null ? Optional.empty() : Optional.of(rsp.getProvider());
     }
 }
