@@ -6,10 +6,10 @@ import com.mrfermz.mcplugins.core.db.DatabaseSettings;
 import com.mrfermz.mcplugins.core.db.Dialect;
 import com.mrfermz.mcplugins.core.db.HikariDatabaseService;
 import com.mrfermz.mcplugins.core.log.PluginLog;
-import com.mrfermz.mcplugins.core.settings.DbPlayerPreferenceService;
-import com.mrfermz.mcplugins.core.settings.DefaultSettingsRegistry;
-import com.mrfermz.mcplugins.core.settings.PlayerPreferenceService;
-import com.mrfermz.mcplugins.core.settings.SettingsRegistry;
+import com.mrfermz.mcplugins.core.menu.DbPlayerPreferenceService;
+import com.mrfermz.mcplugins.core.menu.DefaultMenuRegistry;
+import com.mrfermz.mcplugins.core.menu.MenuRegistry;
+import com.mrfermz.mcplugins.core.menu.PlayerPreferenceService;
 import java.io.File;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -42,9 +42,9 @@ public final class CorePlugin extends JavaPlugin {
         FileConfiguration config = EcosystemData.config(this);
 
         startDatabase(config);
-        // Per-player settings infra rides on the central DB; only when it's up.
+        // Per-player menu infra rides on the central DB; only when it's up.
         if (database != null) {
-            startPlayerSettings();
+            startPlayerMenu();
         }
 
         log.info("minecraft-plugin-core enabled (shared API ready).");
@@ -67,22 +67,24 @@ public final class CorePlugin extends JavaPlugin {
     }
 
     /**
-     * Registers the shared per-player settings services: a {@link SettingsRegistry}
-     * that feature plugins add their settings to, and a
-     * {@link PlayerPreferenceService} that stores each player's choices in the
-     * central DB. The in-game {@code Settings} plugin renders the registry and
-     * writes through the preference service.
+     * Registers the shared per-player menu services: a {@link MenuRegistry} that
+     * feature plugins add their options to, and a {@link PlayerPreferenceService}
+     * that stores each player's choices in the central DB. The in-game
+     * {@code Menu} plugin renders the registry and writes through the preference
+     * service.
      */
-    private void startPlayerSettings() {
+    private void startPlayerMenu() {
         getServer().getServicesManager().register(
-                SettingsRegistry.class, new DefaultSettingsRegistry(), this, ServicePriority.Normal);
+                MenuRegistry.class, new DefaultMenuRegistry(), this, ServicePriority.Normal);
 
+        // Table name kept as setting_values (tablePrefix "setting") so existing
+        // data survives the menu rename.
         this.preferences = new DbPlayerPreferenceService(
                 this, database.dataSource(), database.tablePrefix("setting"), database.dialect(), log);
         getServer().getServicesManager().register(
                 PlayerPreferenceService.class, preferences, this, ServicePriority.Normal);
 
-        log.info("Player settings ready (registry + preference store).");
+        log.info("Player menu ready (registry + preference store).");
     }
 
     private void startDatabase(FileConfiguration config) {

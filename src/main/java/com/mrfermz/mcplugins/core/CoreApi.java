@@ -2,8 +2,8 @@ package com.mrfermz.mcplugins.core;
 
 import com.mrfermz.mcplugins.core.api.EconomyService;
 import com.mrfermz.mcplugins.core.db.DatabaseService;
-import com.mrfermz.mcplugins.core.settings.PlayerPreferenceService;
-import com.mrfermz.mcplugins.core.settings.SettingsRegistry;
+import com.mrfermz.mcplugins.core.menu.MenuRegistry;
+import com.mrfermz.mcplugins.core.menu.PlayerPreferenceService;
 import java.util.Optional;
 import org.bukkit.Server;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -38,12 +38,12 @@ public final class CoreApi {
     }
 
     /**
-     * Looks up the shared {@link SettingsRegistry} — where feature plugins
-     * register their per-player settings for the in-game menu.
+     * Looks up the shared {@link MenuRegistry} — where feature plugins register
+     * their per-player options for the in-game menu.
      */
-    public static Optional<SettingsRegistry> settings(Server server) {
-        RegisteredServiceProvider<SettingsRegistry> rsp =
-                server.getServicesManager().getRegistration(SettingsRegistry.class);
+    public static Optional<MenuRegistry> menu(Server server) {
+        RegisteredServiceProvider<MenuRegistry> rsp =
+                server.getServicesManager().getRegistration(MenuRegistry.class);
         return rsp == null ? Optional.empty() : Optional.of(rsp.getProvider());
     }
 

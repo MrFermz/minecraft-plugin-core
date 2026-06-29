@@ -16,7 +16,7 @@ Feature plugin ทุกตัว depend on ตัวนี้แบบ `compile
 | `api/` | `EconomyService`, `EconomyResponse` | สัญญา economy ที่ plugin อื่นเรียกใช้ (impl อยู่ใน money) ใช้ `BigDecimal` ห้าม `double` |
 | `db/` | `DatabaseService`, `HikariDatabaseService`, `Dialect`, `DatabaseSettings` | shared DB กลาง — HikariCP pool เดียว, เลือก engine ได้ (sqlite/postgresql/mysql/mariadb); plugin อื่นขอ `DataSource` + `dialect()` ผ่าน `CoreApi.database(server)` + `tablePrefix("<module>")` |
 | `config/` | `ConfigClient` | **seam เท่านั้น** — interface อ่านค่าจาก `webconfig/` (cache + refresh) ยังไม่มี impl |
-| `settings/` | `SettingsRegistry`, `SettingDefinition`, `PlayerPreferenceService`, `DbPlayerPreferenceService` | **per-player settings กลาง** — feature plugin register `SettingDefinition` ของตัวเอง, plugin `Menu` render เป็น UI, ค่าเก็บต่อผู้เล่นในตาราง `setting_values` (ดูข้างล่าง) |
+| `menu/` | `MenuRegistry`, `MenuItem`, `MenuItemType`, `PlayerPreferenceService`, `DbPlayerPreferenceService` | **per-player menu/settings กลาง** — feature plugin register `MenuItem` ของตัวเอง, plugin `Menu` render เป็น UI, ค่าเก็บต่อผู้เล่นในตาราง `setting_values` (ดูข้างล่าง) |
 | `log/` | `PluginLog` | wrapper รอบ Bukkit logger ให้ทุก plugin format log เหมือนกัน (`PluginLog.of(plugin)`, รองรับ `{}` placeholder) |
 
 ## วิธีให้ plugin อื่นเรียก economy
@@ -46,8 +46,8 @@ core เป็นเจ้าของ **ทะเบียน setting กลา
 
 ```java
 // feature plugin: นิยาม setting ของตัวเองตอน onEnable
-CoreApi.settings(getServer()).ifPresent(reg -> reg.register(
-        SettingDefinition.toggle("money.top.visible", "Money",
+CoreApi.menu(getServer()).ifPresent(reg -> reg.register(
+        MenuItem.toggle("money.top.visible", "Money",
                 "Show me on /money top", "Appear on the public leaderboard", true)));
 
 // อ่านค่าผู้เล่น (มี default เสมอ; cache อยู่ใน memory, อ่านได้ทั้ง online/offline, realtime)
@@ -55,7 +55,7 @@ PlayerPreferenceService prefs = CoreApi.preferences(getServer()).orElse(null);
 boolean onTop = prefs.getBoolean(uuid, "money.top.visible", true);
 ```
 
-- `SettingDefinition` รองรับ `toggle` / `choice` / `number` / `text` — `Menu` map เป็น Dialog input ที่ถูกชนิด
+- `MenuItem` รองรับ `toggle` / `choice` / `number` / `text` — `Menu` map เป็น Dialog input ที่ถูกชนิด
 - ค่าเก็บที่ตาราง `setting_values` (prefix `setting_`): `id` UUID PK, `player_uuid`+`setting_key` UNIQUE (upsert), `setting_value`, `created_at` (date column), `created_by` — ตาม [convention DB/เวลา](../CLAUDE.md#database)
 - `set(...)` อัปเดต cache ทันที (effect realtime) แล้ว flush ลง DB แบบ async (debounced) เหมือน money
 
@@ -69,7 +69,7 @@ boolean onTop = prefs.getBoolean(uuid, "money.top.visible", true);
 
 - ✅ API surface (`EconomyService`/`EconomyResponse`), `CoreApi`, `EcosystemData`, `PluginLog`
 - ✅ `DatabaseService` wired — `HikariDatabaseService` รองรับ **sqlite (default) / postgresql (แนะนำ production) / mysql / mariadb** เลือกผ่าน `database.type` ใน global `config.yml`; driver โหลด runtime ผ่าน Paper `libraries:` (ไม่ shade); plugin อื่นใช้ `dialect()` เลือก SQL ที่ถูก engine
-- ✅ Per-player settings wired — `SettingsRegistry` + `PlayerPreferenceService` (ตาราง `setting_values`); render โดย [minecraft-plugin-menu](../minecraft-plugin-menu/README.md)
+- ✅ Per-player settings wired — `MenuRegistry` + `PlayerPreferenceService` (ตาราง `setting_values`); render โดย [minecraft-plugin-menu](../minecraft-plugin-menu/README.md)
 - ⏳ `ConfigClient` เป็น interface placeholder (รอ `webconfig/`); ยังไม่มี migration กลาง (Flyway) — แต่ละ plugin `CREATE TABLE IF NOT EXISTS` ไปก่อน
 
 ## Build

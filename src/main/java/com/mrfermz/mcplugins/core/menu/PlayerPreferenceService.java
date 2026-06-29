@@ -1,16 +1,16 @@
-package com.mrfermz.mcplugins.core.settings;
+package com.mrfermz.mcplugins.core.menu;
 
 import java.util.Map;
 import java.util.UUID;
 
 /**
- * Stores and reads per-player settings values, persisted in the shared central
+ * Stores and reads per-player option values, persisted in the shared central
  * database owned by core. Backed by an in-memory cache, so reads are cheap and
  * safe to call on the main thread (e.g. while rendering, or building
  * {@code /money top}); writes update the cache immediately — so a change takes
  * effect in real time — and persist asynchronously.
  *
- * <p>Consumers always pass a default so a setting works before the player has
+ * <p>Consumers always pass a default so an option works before the player has
  * ever opened the menu. Look it up via
  * {@link com.mrfermz.mcplugins.core.CoreApi#preferences}.
  *

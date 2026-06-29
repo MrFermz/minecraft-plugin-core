@@ -1,12 +1,12 @@
-package com.mrfermz.mcplugins.core.settings;
+package com.mrfermz.mcplugins.core.menu;
 
 /**
- * The kind of control a {@link SettingDefinition} maps to in the in-game UI.
+ * The kind of control a {@link MenuItem} maps to in the in-game menu UI.
  *
  * <p>Values are always stored as text in the central DB regardless of type; the
  * type only tells the UI which input to render and how to parse the result.
  */
-public enum SettingType {
+public enum MenuItemType {
 
     /** On/off — stored as {@code "true"}/{@code "false"}. */
     TOGGLE,
